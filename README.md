@@ -1,6 +1,6 @@
-# Tapirus - synthesizer module
+# Tapirus - sound synthesizer modules
 
-*Tapirus* is a synthesizer module written in Rust. It also includes sound module manupilation API and construction language (Tapir Lisp).
+*Tapirus* is a set of sound synthesizer modules written in Rust. It also includes sound module manupilation API and construction language (Tapir Lisp).
 
 ## Requirements
 
