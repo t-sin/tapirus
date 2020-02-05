@@ -6,6 +6,17 @@
 
 - ALSA (GNU/Linux)
 
+## Usage
+
+Upcomming...
+
+### Tapir Lisp
+
+Tapir Lisp is a Lisp-like language for describing synthesizer signal flow.
+It's used to save and load synthesizer configuration that created interactively by a user.
+For details, see [Tapir Lisp's README](src/tapirlisp/README.md).
+
+
 ## Author
 
 - TANAKA Shinichi (<shinichi.tanaka45@gmail.com>)
