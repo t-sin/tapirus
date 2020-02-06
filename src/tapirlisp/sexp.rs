@@ -36,29 +36,26 @@ impl Error for ReadError {
 }
 
 fn skip_whitespaces(chars: &mut Peekable<Chars>) {
+    let mut comment = false;
     loop {
         let ch = chars.peek();
         match ch {
+            Some(';') => {
+                comment = true;
+                chars.next();
+            }
             Some(c) => {
-                if c.is_whitespace() {
-                    chars.next();
-                } else {
+                if !comment && !c.is_whitespace() {
                     break;
+                } else if comment && *c == '\n' {
+                    chars.next();
+                    break;
+                } else {
+                    chars.next();
                 }
             }
             _ => break,
         }
-    }
-}
-
-fn skip_comment(chars: &mut Peekable<Chars>) {
-    loop {
-        let ch = chars.peek();
-        match ch {
-            Some('\n') => break,
-            None => break,
-            _ => chars.next(),
-        };
     }
 }
 
@@ -127,12 +124,9 @@ fn read_list(chars: &mut Peekable<Chars>) -> Result<Cons, ReadError> {
 fn read_exp(chars: &mut Peekable<Chars>) -> Result<Cons, ReadError> {
     skip_whitespaces(chars);
     let ch = chars.peek();
+
     match ch {
         None => Ok(Cons::Nil),
-        Some(';') => {
-            skip_comment(chars);
-            Ok(Cons::Nil)
-        }
         Some(')') => Err(ReadError::UnexpectedCloseParen),
         Some('(') => read_list(chars),
         Some(c) => {
