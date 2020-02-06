@@ -1,3 +1,6 @@
+use std::cmp::Ordering;
+use std::sync::Arc;
+
 use crate::ugens::core::{Aug, Dump, Slot, UgNode, Value};
 use crate::ugens::util::collect_shared_ugs;
 
@@ -73,6 +76,39 @@ fn dump_ug(
     s
 }
 
+fn is_include(a: &Aug, b: &Aug) -> Ordering {
+    if Arc::ptr_eq(&a.0, &b.0) {
+        Ordering::Equal
+    } else {
+        match b.dump(&vec![]) {
+            UgNode::Val(val) => Ordering::Less,
+            UgNode::Ug(_, slots) => {
+                let mut order = Ordering::Less;
+                for s in slots {
+                    order.then(is_include(a, &s.ug));
+                }
+                order
+            }
+            UgNode::UgRest(_, slots, _, values) => {
+                let mut order = Ordering::Less;
+                for s in slots {
+                    order.then(is_include(a, &s.ug));
+                }
+                for v in values {
+                    order.then(match *v {
+                        Value::Number(_) => Ordering::Less,
+                        Value::Table(_) => Ordering::Less,
+                        Value::Pattern(_) => Ordering::Less,
+                        Value::Ug(aug) => is_include(a, &aug),
+                        Value::Shared(_, aug) => is_include(a, &aug),
+                    });
+                }
+                order
+            }
+        }
+    }
+}
+
 pub fn dump_unit(dump: &UgNode, shared: &Vec<Aug>) -> String {
     match dump {
         UgNode::Val(v) => dump_value(v, shared),
@@ -82,7 +118,8 @@ pub fn dump_unit(dump: &UgNode, shared: &Vec<Aug>) -> String {
 }
 
 pub fn dump(ug: Aug, env: &Env) -> String {
-    let shared_units = collect_shared_ugs(ug.clone());
+    let mut shared_units = collect_shared_ugs(ug.clone());
+    shared_units.sort_by(is_include);
 
     let mut tlisp_str = String::new();
     tlisp_str.push_str(";; environment\n");
