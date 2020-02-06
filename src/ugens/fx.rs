@@ -215,14 +215,14 @@ impl Proc for LPFilter {
 
 pub struct Delay {
     buffer: VecDeque<Box<Signal>>,
-    transport: Aug,
+    time: Aug,
     feedback: Aug,
     mix: Aug,
     src: Aug,
 }
 
 impl Delay {
-    pub fn new(transport: Aug, feedback: Aug, mix: Aug, src: Aug, env: &Env) -> Aug {
+    pub fn new(time: Aug, feedback: Aug, mix: Aug, src: Aug, env: &Env) -> Aug {
         let len = (env.transport.sample_rate * 2) as usize;
         let mut buffer = VecDeque::with_capacity(len);
         for _n in 0..len {
@@ -230,7 +230,7 @@ impl Delay {
         }
         Aug::new(UGen::new(UG::Proc(Box::new(Delay {
             buffer: buffer,
-            transport: transport,
+            time: time,
             feedback: feedback,
             mix: mix,
             src: src,
@@ -240,8 +240,8 @@ impl Delay {
 
 impl Walk for Delay {
     fn walk(&self, f: &mut dyn FnMut(&Aug) -> bool) {
-        if f(&self.transport) {
-            self.transport.walk(f);
+        if f(&self.time) {
+            self.time.walk(f);
         }
         if f(&self.feedback) {
             self.feedback.walk(f);
@@ -260,11 +260,11 @@ impl Dump for Delay {
         let mut slots = Vec::new();
 
         slots.push(Slot {
-            ug: self.transport.clone(),
-            name: "transport".to_string(),
-            value: match shared_ug.iter().position(|e| *e == self.transport) {
+            ug: self.time.clone(),
+            name: "time".to_string(),
+            value: match shared_ug.iter().position(|e| *e == self.time) {
                 Some(n) => Value::Shared(n, shared_ug.iter().nth(n).unwrap().clone()),
-                None => Value::Ug(self.transport.clone()),
+                None => Value::Ug(self.time.clone()),
             },
         });
         slots.push(Slot {
@@ -299,7 +299,7 @@ impl Dump for Delay {
 impl Operate for Delay {
     fn get(&self, pname: &str) -> Result<Aug, OperateError> {
         match pname {
-            "transport" => Ok(self.transport.clone()),
+            "time" => Ok(self.time.clone()),
             "feedback" => Ok(self.feedback.clone()),
             "mix" => Ok(self.mix.clone()),
             "src" => Ok(self.src.clone()),
@@ -325,8 +325,8 @@ impl Operate for Delay {
 
     fn set(&mut self, pname: &str, ug: Aug) -> Result<bool, OperateError> {
         match pname {
-            "transport" => {
-                self.transport = ug;
+            "time" => {
+                self.time = ug;
                 Ok(true)
             }
             "feedback" => {
@@ -350,9 +350,9 @@ impl Operate for Delay {
         data.retain(|c| c != '\n' && c != ' ');
 
         match pname {
-            "transport" => {
+            "time" => {
                 if let Ok(v) = data.parse::<f64>() {
-                    self.transport = Aug::val(v);
+                    self.time = Aug::val(v);
                     Ok(true)
                 } else {
                     let err =
@@ -396,7 +396,7 @@ impl Operate for Delay {
 
     fn clear(&mut self, pname: &str) {
         match pname {
-            "transport" => {
+            "time" => {
                 let _ = self.set(pname, Aug::val(0.0));
             }
             "feedback" => {
@@ -423,8 +423,8 @@ impl Proc for Delay {
         self.buffer.pop_back();
         let sig = self.src.proc(transport);
         self.buffer.push_front(Box::new(sig));
-        let dtransport = self.transport.proc(transport).0;
-        let dt = sec_to_sample_num(dtransport, transport);
+        let dtime = self.time.proc(transport).0;
+        let dt = sec_to_sample_num(dtime, transport);
         let fb = self.feedback.proc(transport).0;
         let mix = self.mix.proc(transport).0;
 
