@@ -88,7 +88,7 @@ impl Operate for Rand {
                     Ok(true)
                 } else {
                     let err =
-                        OperateError::CannotParseNumber(format!("sine/{}", pname), data.clone());
+                        OperateError::CannotParseNumber(format!("rand/{}", pname), data.clone());
                     Err(err)
                 }
             }
