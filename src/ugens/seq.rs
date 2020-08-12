@@ -720,7 +720,7 @@ impl Proc for Seq {
 
         if self.fill {
             let base = Pos {
-                bar: transport.pos.bar,
+                bar: transport.pos.bar + 1,
                 beat: 0,
                 pos: 0.0,
             };
