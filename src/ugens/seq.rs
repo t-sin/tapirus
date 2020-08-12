@@ -711,7 +711,12 @@ impl Proc for Seq {
                 Event::Loop(pos) => {
                     if pos <= &transport.pos {
                         self.queue.pop_front().unwrap();
-                        self.fill = true;
+                        let base = Pos {
+                            bar: transport.pos.bar,
+                            beat: 0,
+                            pos: 0.0,
+                        };
+                        self.fill_queue(&base, &transport.measure);
                     }
                 }
             },
