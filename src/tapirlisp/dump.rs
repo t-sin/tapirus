@@ -81,21 +81,21 @@ fn is_include(a: &Aug, b: &Aug) -> Ordering {
         Ordering::Equal
     } else {
         match b.dump(&vec![]) {
-            UgNode::Val(val) => Ordering::Less,
+            UgNode::Val(_) => Ordering::Less,
             UgNode::Ug(_, slots) => {
-                let mut order = Ordering::Less;
+                let order = Ordering::Less;
                 for s in slots {
-                    order.then(is_include(a, &s.ug));
+                    let _ = order.then(is_include(a, &s.ug));
                 }
                 order
             }
             UgNode::UgRest(_, slots, _, values) => {
-                let mut order = Ordering::Less;
+                let order = Ordering::Less;
                 for s in slots {
-                    order.then(is_include(a, &s.ug));
+                    let _ = order.then(is_include(a, &s.ug));
                 }
                 for v in values {
-                    order.then(match *v {
+                    let _ = order.then(match *v {
                         Value::Number(_) => Ordering::Less,
                         Value::Table(_) => Ordering::Less,
                         Value::Pattern(_) => Ordering::Less,

@@ -129,7 +129,7 @@ pub fn to_pos(len: u32) -> Pos {
     } else if len >= 3 {
         2.0f64.powf(len as f64 - 3.0)
     } else {
-        (len as f64 / 4.0)
+        len as f64 / 4.0
     };
     Pos {
         bar: 0,
