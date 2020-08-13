@@ -1,6 +1,6 @@
 [package]
 name = "tapirus"
-version = "1.0.3"
+version = "1.0.4"
 authors = ["t-sin <shinichi.tanaka45@gmail.com>"]
 edition = "2018"
 
