@@ -800,17 +800,21 @@ pub struct Phase {
 
 impl Phase {
     pub fn new(u: Aug) -> Aug {
+        Aug::new(UGen::new(UG::Osc(Box::new(Phase {
+            root: Phase::make_root(u.clone()),
+            osc: u.clone(),
+        }))))
+    }
+
+    fn make_root(u: Aug) -> Aug {
         let offset_val = Aug::val(1.0);
         let gain = Aug::val(0.5);
         let clip_min = Aug::val(-1.0);
         let clip_max = Aug::val(1.0);
-        Aug::new(UGen::new(UG::Osc(Box::new(Phase {
-            root: Offset::new(
-                offset_val,
-                Gain::new(gain, Clip::new(clip_min, clip_max, u.clone())),
-            ),
-            osc: u.clone(),
-        }))))
+        Offset::new(
+            offset_val,
+            Gain::new(gain, Clip::new(clip_min, clip_max, u.clone())),
+        )
     }
 }
 
@@ -867,6 +871,7 @@ impl Operate for Phase {
         match pname {
             "osc" => {
                 self.osc = ug;
+                self.root = Phase::make_root(self.osc.clone());
                 Ok(true)
             }
             _ => Err(OperateError::ParamNotFound(format!("phase/{}", pname))),
@@ -881,6 +886,7 @@ impl Operate for Phase {
             "osc" => {
                 if let Ok(v) = data.parse::<f64>() {
                     self.osc = Aug::val(v);
+                    self.root = Phase::make_root(self.osc.clone());
                     Ok(true)
                 } else {
                     let err =
