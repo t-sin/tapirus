@@ -116,6 +116,12 @@ impl Proc for Rand {
 }
 
 impl Osc for Rand {
+    fn set_ph(&mut self, _ph: f64) {}
+
+    fn get_ph(&self) -> f64 {
+        0.0
+    }
+
     fn set_freq(&mut self, u: Aug) {
         self.freq = u.clone()
     }
@@ -269,6 +275,14 @@ impl Proc for Sine {
 }
 
 impl Osc for Sine {
+    fn set_ph(&mut self, ph: f64) {
+        self.ph = ph;
+    }
+
+    fn get_ph(&self) -> f64 {
+        self.ph
+    }
+
     fn set_freq(&mut self, u: Aug) {
         self.freq = u;
     }
@@ -432,6 +446,14 @@ impl Proc for Tri {
 }
 
 impl Osc for Tri {
+    fn set_ph(&mut self, ph: f64) {
+        self.ph = ph;
+    }
+
+    fn get_ph(&self) -> f64 {
+        self.ph
+    }
+
     fn set_freq(&mut self, u: Aug) {
         self.freq = u;
     }
@@ -592,6 +614,14 @@ impl Proc for Saw {
 }
 
 impl Osc for Saw {
+    fn set_ph(&mut self, ph: f64) {
+        self.ph = ph;
+    }
+
+    fn get_ph(&self) -> f64 {
+        self.ph
+    }
+
     fn set_freq(&mut self, u: Aug) {
         self.freq = u;
     }
@@ -784,6 +814,14 @@ impl Proc for Pulse {
 }
 
 impl Osc for Pulse {
+    fn set_ph(&mut self, ph: f64) {
+        self.ph = ph;
+    }
+
+    fn get_ph(&self) -> f64 {
+        self.ph
+    }
+
     fn set_freq(&mut self, u: Aug) {
         self.freq = u;
     }
@@ -918,6 +956,20 @@ impl Proc for Phase {
 }
 
 impl Osc for Phase {
+    fn set_ph(&mut self, ph: f64) {
+        if let UG::Osc(ref mut osc) = &mut self.osc.0.lock().unwrap().ug {
+            osc.set_ph(ph);
+        }
+    }
+
+    fn get_ph(&self) -> f64 {
+        if let UG::Osc(ref mut osc) = &mut self.osc.0.lock().unwrap().ug {
+            osc.get_ph()
+        } else {
+            0.0
+        }
+    }
+
     fn set_freq(&mut self, freq: Aug) {
         if let UG::Osc(ref mut osc) = &mut self.osc.0.lock().unwrap().ug {
             osc.set_freq(freq);
@@ -1117,6 +1169,20 @@ impl Proc for WaveTable {
 }
 
 impl Osc for WaveTable {
+    fn set_ph(&mut self, ph: f64) {
+        if let UG::Osc(ref mut osc) = &mut self.ph.0.lock().unwrap().ug {
+            osc.set_ph(ph);
+        }
+    }
+
+    fn get_ph(&self) -> f64 {
+        if let UG::Osc(ref mut osc) = &mut self.ph.0.lock().unwrap().ug {
+            osc.get_ph()
+        } else {
+            0.0
+        }
+    }
+
     fn set_freq(&mut self, freq: Aug) {
         if let UG::Osc(ref mut osc) = &mut self.ph.0.lock().unwrap().ug {
             osc.set_freq(freq);
