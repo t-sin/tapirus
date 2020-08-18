@@ -4,9 +4,203 @@ use rand::{Rng, SeedableRng};
 use crate::musical_time::time::{Clock, Pos, Transport};
 
 use super::core::{
-    Aug, Dump, Operate, OperateError, Osc, Proc, Signal, Slot, Table, UGen, UgNode, Value, Walk, UG,
+    Aug, Dump, Operate, OperateError, Osc, Proc, Signal, Slot, Table, UGen, UgNode, Value, Walk,
+    ADSR, UG,
 };
 use super::misc::{Clip, Gain, Offset};
+
+pub struct OneshotOsc {
+    pub osc: Aug,
+    pub eg: Aug,
+}
+
+impl OneshotOsc {
+    pub fn new(osc: Aug, eg: Aug) -> Aug {
+        Aug::new(UGen::new(UG::Osc(Box::new(OneshotOsc {
+            osc: osc.clone(),
+            eg: eg.clone(),
+        }))))
+    }
+}
+
+impl Walk for OneshotOsc {
+    fn walk(&self, f: &mut dyn FnMut(&Aug) -> bool) {
+        if f(&self.osc) {
+            self.osc.walk(f);
+        }
+        if f(&self.eg) {
+            self.eg.walk(f);
+        }
+    }
+}
+
+impl Dump for OneshotOsc {
+    fn dump(&self, shared_ug: &Vec<Aug>) -> UgNode {
+        let mut slots = Vec::new();
+
+        slots.push(Slot {
+            ug: self.osc.clone(),
+            name: "osc".to_string(),
+            value: match shared_ug.iter().position(|e| *e == self.osc) {
+                Some(n) => Value::Shared(n, shared_ug.iter().nth(n).unwrap().clone()),
+                None => Value::Ug(self.osc.clone()),
+            },
+        });
+        slots.push(Slot {
+            ug: self.eg.clone(),
+            name: "eg".to_string(),
+            value: match shared_ug.iter().position(|e| *e == self.eg) {
+                Some(n) => Value::Shared(n, shared_ug.iter().nth(n).unwrap().clone()),
+                None => Value::Ug(self.eg.clone()),
+            },
+        });
+
+        UgNode::Ug("oneshot".to_string(), slots)
+    }
+}
+
+impl Operate for OneshotOsc {
+    fn get(&self, pname: &str) -> Result<Aug, OperateError> {
+        match pname {
+            "osc" => Ok(self.osc.clone()),
+            "eg" => Ok(self.eg.clone()),
+            _ => Err(OperateError::ParamNotFound(format!("oneshot/{}", pname))),
+        }
+    }
+
+    fn get_str(&self, pname: &str) -> Result<String, OperateError> {
+        match self.get(pname) {
+            Ok(aug) => {
+                if let Some(v) = aug.to_val() {
+                    Ok(v.to_string())
+                } else {
+                    Err(OperateError::CannotRepresentAsString(format!(
+                        "oneshot/{}",
+                        pname
+                    )))
+                }
+            }
+            Err(err) => Err(err),
+        }
+    }
+
+    fn set(&mut self, pname: &str, ug: Aug) -> Result<bool, OperateError> {
+        match pname {
+            "osc" => {
+                self.osc = ug;
+                Ok(true)
+            }
+            "eg" => {
+                self.eg = ug;
+                Ok(true)
+            }
+            _ => Err(OperateError::ParamNotFound(format!("oneshot/{}", pname))),
+        }
+    }
+
+    fn set_str(&mut self, pname: &str, data: String) -> Result<bool, OperateError> {
+        let mut data = data.clone();
+        data.retain(|c| c != '\n' && c != ' ');
+
+        match pname {
+            "osc" => {
+                if let Ok(v) = data.parse::<f64>() {
+                    self.osc = Aug::val(v);
+                    Ok(true)
+                } else {
+                    let err =
+                        OperateError::CannotParseNumber(format!("oneshot/{}", pname), data.clone());
+                    Err(err)
+                }
+            }
+            "eg" => {
+                if let Ok(v) = data.parse::<f64>() {
+                    self.eg = Aug::val(v);
+                    Ok(true)
+                } else {
+                    let err =
+                        OperateError::CannotParseNumber(format!("oneshot/{}", pname), data.clone());
+                    Err(err)
+                }
+            }
+            _ => Err(OperateError::ParamNotFound(format!("oneshot/{}", pname))),
+        }
+    }
+
+    fn clear(&mut self, pname: &str) {
+        match pname {
+            "osc" => {
+                let _ = self.set(pname, Aug::val(0.0));
+            }
+            "eg" => {
+                let _ = self.set(pname, Aug::val(0.0));
+            }
+            _ => (),
+        };
+    }
+}
+
+impl Proc for OneshotOsc {
+    fn proc(&mut self, transport: &Transport) -> Signal {
+        let mut state = ADSR::None;
+        let mut ph = 0.0;
+
+        if let UG::Osc(ref mut osc) = &mut self.osc.0.lock().unwrap().ug {
+            if let UG::Eg(ref mut eg) = &mut self.eg.0.lock().unwrap().ug {
+                ph = osc.get_ph();
+                state = eg.get_state();
+            }
+        }
+
+        if let ADSR::Attack | ADSR::Decay | ADSR::Sustin = state {
+            let v = self.osc.proc(transport).0;
+            let _ = self.eg.proc(transport).0;
+
+            if ph >= 1.0 {
+                if let UG::Osc(ref mut osc) = &mut self.osc.0.lock().unwrap().ug {
+                    osc.set_ph(0.0);
+                }
+                if let UG::Eg(ref mut eg) = &mut self.eg.0.lock().unwrap().ug {
+                    eg.set_state(ADSR::None, 0);
+                }
+            };
+
+            return (v, v);
+        }
+
+        (0.0, 0.0)
+    }
+}
+
+impl Osc for OneshotOsc {
+    fn set_ph(&mut self, ph: f64) {
+        if let UG::Osc(ref mut osc) = &mut self.osc.0.lock().unwrap().ug {
+            osc.set_ph(ph);
+        }
+    }
+
+    fn get_ph(&self) -> f64 {
+        if let UG::Osc(ref mut osc) = &mut self.osc.0.lock().unwrap().ug {
+            osc.get_ph()
+        } else {
+            0.0
+        }
+    }
+
+    fn set_freq(&mut self, freq: Aug) {
+        if let UG::Osc(ref mut osc) = &mut self.osc.0.lock().unwrap().ug {
+            osc.set_freq(freq);
+        }
+    }
+
+    fn get_freq(&self) -> Aug {
+        if let UG::Osc(ref mut osc) = &mut self.osc.0.lock().unwrap().ug {
+            osc.get_freq()
+        } else {
+            Aug::val(0.0)
+        }
+    }
+}
 
 pub struct Rand {
     rng: SmallRng,
