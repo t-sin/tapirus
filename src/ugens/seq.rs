@@ -153,6 +153,14 @@ impl Proc for Trigger {
 }
 
 impl Eg for Trigger {
+    fn get_state(&self) -> ADSR {
+        if let UG::Eg(ref eg) = &mut self.eg.0.lock().unwrap().ug {
+            eg.get_state()
+        } else {
+            ADSR::None
+        }
+    }
+
     fn set_state(&mut self, state: ADSR, eplaced: u64) {
         if let UG::Eg(ref mut eg) = &mut self.eg.0.lock().unwrap().ug {
             eg.set_state(state.clone(), eplaced);
@@ -420,6 +428,10 @@ impl Proc for AdsrEg {
 }
 
 impl Eg for AdsrEg {
+    fn get_state(&self) -> ADSR {
+        self.state.clone()
+    }
+
     fn set_state(&mut self, state: ADSR, eplaced: u64) {
         self.state = state;
         self.eplaced = eplaced;

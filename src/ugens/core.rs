@@ -79,6 +79,7 @@ pub enum ADSR {
 }
 
 pub trait Eg: Proc {
+    fn get_state(&self) -> ADSR;
     fn set_state(&mut self, state: ADSR, eplaced: u64);
 }
 
@@ -290,6 +291,13 @@ impl Osc for UG {
 }
 
 impl Eg for UG {
+    fn get_state(&self) -> ADSR {
+        match self {
+            UG::Eg(u) => u.get_state(),
+            _ => ADSR::None,
+        }
+    }
+
     fn set_state(&mut self, state: ADSR, eplaced: u64) {
         match self {
             UG::Eg(u) => u.set_state(state, eplaced),
