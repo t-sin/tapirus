@@ -6,19 +6,20 @@ use crate::musical_time::utils::{to_note, to_pos};
 use crate::ugens::core::{Aug, Pattern, Table, UGen, UG};
 use crate::ugens::fx::{Delay, LPFilter};
 use crate::ugens::misc::{Add, Clip, Gain, Multiply, Offset, Out, Pan};
-use crate::ugens::osc::{Phase, Pulse, Rand, Saw, Sine, Tri, WaveTable};
+use crate::ugens::osc::{OneshotOsc, Phase, Pulse, Rand, Saw, Sine, Tri, WaveTable};
 use crate::ugens::seq::{AdsrEg, Seq, Trigger};
 
 use super::sexp::{print, to_vec, Cons};
 use super::types::{Env, EvalError, Value};
 
-pub static TYPE_NAMES: [&str; 21] = [
+pub static TYPE_NAMES: [&str; 22] = [
     "pan",
     "clip",
     "offset",
     "gain",
     "+",
     "*",
+    "oneshot",
     "rand",
     "sine",
     "tri",
@@ -134,6 +135,22 @@ fn make_multiply(args: Vec<Box<Cons>>, env: &mut Env) -> Result<Aug, EvalError> 
 }
 
 // oscillators
+
+fn make_oneshot(args: Vec<Box<Cons>>, env: &mut Env) -> Result<Aug, EvalError> {
+    if args.len() == 2 {
+        match eval(&args[0], env) {
+            Ok(Value::Unit(osc)) => match eval(&args[1], env) {
+                Ok(Value::Unit(eg)) => Ok(OneshotOsc::new(osc.clone(), eg.clone())),
+                Ok(_v) => Err(EvalError::NotAug),
+                Err(err) => Err(err),
+            },
+            Ok(_v) => Err(EvalError::NotAug),
+            Err(err) => Err(err),
+        }
+    } else {
+        Err(EvalError::FnWrongParams(String::from("oneshot"), args))
+    }
+}
 
 fn make_rand(args: Vec<Box<Cons>>, env: &mut Env) -> Result<Aug, EvalError> {
     if args.len() == 1 {
@@ -477,6 +494,7 @@ pub fn make_unit(name: &str, args: Vec<Box<Cons>>, env: &mut Env) -> Result<Aug,
         "+" => make_add(args, env),
         "*" => make_multiply(args, env),
         // oscillator
+        "oneshot" => make_oneshot(args, env),
         "rand" => make_rand(args, env),
         "sine" => make_sine(args, env),
         "tri" => make_tri(args, env),
