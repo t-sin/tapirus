@@ -142,6 +142,7 @@ impl Operate for OneshotOsc {
 
 impl Proc for OneshotOsc {
     fn proc(&mut self, transport: &Transport) -> Signal {
+        let _ = self.eg.proc(transport).0;
         let mut state = ADSR::None;
         let mut ph = 0.0;
 
@@ -154,8 +155,6 @@ impl Proc for OneshotOsc {
 
         if let ADSR::Attack | ADSR::Decay | ADSR::Sustin = state {
             let v = self.osc.proc(transport).0;
-            let _ = self.eg.proc(transport).0;
-
             if ph >= 1.0 {
                 if let UG::Osc(ref mut osc) = &mut self.osc.0.lock().unwrap().ug {
                     osc.set_ph(0.0);
@@ -164,8 +163,14 @@ impl Proc for OneshotOsc {
                     eg.set_state(ADSR::None, 0);
                 }
             };
-
             return (v, v);
+        } else if let ADSR::Release | ADSR::None = state {
+            if let UG::Osc(ref mut osc) = &mut self.osc.0.lock().unwrap().ug {
+                osc.set_ph(0.0);
+            }
+            if let UG::Eg(ref mut eg) = &mut self.eg.0.lock().unwrap().ug {
+                eg.set_state(ADSR::None, 0);
+            }
         }
 
         (0.0, 0.0)
