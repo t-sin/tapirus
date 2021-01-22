@@ -8,7 +8,7 @@ use compile::compile;
 use vm::{Op, Reg, VM};
 
 pub fn run_test() {
-    println!("-- somnia test --");
+    println!("-- somnium test --");
     let memory = &[0, 0, 0, 0, 0, 0, 0];
     let code = "(+ (+ 1 (+ -1 (+ 0 1))) (+ 2 (+ 3 (+ 4 5))))".to_string();
     println!("code: {:?}", code);
