@@ -438,13 +438,21 @@ impl Eg for AdsrEg {
     }
 }
 
+pub type SeqBeatHook = fn(&Pos);
+pub type SeqEventHook = fn(&Event, &Pos);
+
 pub struct Seq {
     pattern: Aug,
     queue: VecDeque<Box<Event>>,
     osc: Aug,
     osc_mod: Aug,
     eg: Aug,
+
     fill: bool,
+    prev_beat: u64,
+
+    beat_hook: SeqBeatHook,
+    event_hook: SeqEventHook,
 }
 
 impl Seq {
@@ -456,6 +464,9 @@ impl Seq {
             osc_mod: osc_mod,
             eg: eg,
             fill: false,
+            prev_beat: 255,
+            beat_hook: |_| {},
+            event_hook: |_, _| {},
         };
         seq.fill_queue(&transport.pos, &transport.measure);
         Aug::new(UGen::new(UG::Proc(Box::new(seq))))
@@ -490,6 +501,14 @@ impl Seq {
         } else {
             println!("aug is not a pattern!!");
         }
+    }
+
+    pub fn set_beat_hook(&mut self, hook_fn: SeqBeatHook) {
+        self.beat_hook = hook_fn;
+    }
+
+    pub fn set_event_hook(&mut self, hook_fn: SeqEventHook) {
+        self.event_hook = hook_fn;
     }
 }
 
@@ -686,52 +705,61 @@ impl Proc for Seq {
         let (el, er) = self.eg.proc(&transport);
         let mut q = self.queue.iter().peekable();
 
+        if transport.pos.beat != self.prev_beat {
+            (self.beat_hook)(&transport.pos);
+        }
+
         match q.peek() {
-            Some(e) => match &***e {
-                Event::On(pos, _freq) => {
-                    if pos <= &transport.pos {
-                        if let Event::On(_pos, freq) = *self.queue.pop_front().unwrap() {
-                            if let UG::Osc(ref mut osc) = &mut self.osc.0.lock().unwrap().ug {
-                                let freq =
-                                    vec![self.osc_mod.clone(), Aug::new(UGen::new(UG::Val(freq)))];
-                                osc.set_freq(Add::new(freq));
-                            }
-                            if let UG::Eg(ref mut eg) = &mut self.eg.0.lock().unwrap().ug {
-                                eg.set_state(ADSR::Attack, 0);
-                            }
-                        }
-                    }
-                }
-                Event::Kick(pos) => {
-                    if pos <= &transport.pos {
-                        if let Event::Kick(_pos) = *self.queue.pop_front().unwrap() {
-                            if let UG::Eg(ref mut eg) = &mut self.eg.0.lock().unwrap().ug {
-                                eg.set_state(ADSR::Attack, 0);
+            Some(e) => {
+                (self.event_hook)(&e, &transport.pos);
+                match &***e {
+                    Event::On(pos, _freq) => {
+                        if pos <= &transport.pos {
+                            if let Event::On(_pos, freq) = *self.queue.pop_front().unwrap() {
+                                if let UG::Osc(ref mut osc) = &mut self.osc.0.lock().unwrap().ug {
+                                    let freq = vec![
+                                        self.osc_mod.clone(),
+                                        Aug::new(UGen::new(UG::Val(freq))),
+                                    ];
+                                    osc.set_freq(Add::new(freq));
+                                }
+                                if let UG::Eg(ref mut eg) = &mut self.eg.0.lock().unwrap().ug {
+                                    eg.set_state(ADSR::Attack, 0);
+                                }
                             }
                         }
                     }
-                }
-                Event::Off(pos) => {
-                    if pos <= &transport.pos {
-                        if let Event::Off(_pos) = *self.queue.pop_front().unwrap() {
-                            if let UG::Eg(ref mut eg) = &mut self.eg.0.lock().unwrap().ug {
-                                eg.set_state(ADSR::Release, 0);
+                    Event::Kick(pos) => {
+                        if pos <= &transport.pos {
+                            if let Event::Kick(_pos) = *self.queue.pop_front().unwrap() {
+                                if let UG::Eg(ref mut eg) = &mut self.eg.0.lock().unwrap().ug {
+                                    eg.set_state(ADSR::Attack, 0);
+                                }
                             }
                         }
                     }
-                }
-                Event::Loop(pos) => {
-                    if pos <= &transport.pos {
-                        self.queue.clear();
-                        let base = Pos {
-                            bar: transport.pos.bar,
-                            beat: 0,
-                            pos: 0.0,
-                        };
-                        self.fill_queue(&base, &transport.measure);
+                    Event::Off(pos) => {
+                        if pos <= &transport.pos {
+                            if let Event::Off(_pos) = *self.queue.pop_front().unwrap() {
+                                if let UG::Eg(ref mut eg) = &mut self.eg.0.lock().unwrap().ug {
+                                    eg.set_state(ADSR::Release, 0);
+                                }
+                            }
+                        }
+                    }
+                    Event::Loop(pos) => {
+                        if pos <= &transport.pos {
+                            self.queue.clear();
+                            let base = Pos {
+                                bar: transport.pos.bar,
+                                beat: 0,
+                                pos: 0.0,
+                            };
+                            self.fill_queue(&base, &transport.measure);
+                        }
                     }
                 }
-            },
+            }
             None => (),
         }
 
